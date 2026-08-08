@@ -1,38 +1,56 @@
-# Flappy CDN live dashboard
+# Flappy CDN · live dashboard
 
-Lightweight **LAN-only** dashboard for watching launcher package downloads against a static **nginx CDN** (the host that serves `index.json` + `packages/*.7z`).
+<p align="center">
+  <strong>LAN-only monitor for Flappy Launcher package downloads</strong><br/>
+  <sub>nginx access log + live TCP · zero npm/Node deps · one <code>install.sh</code></sub>
+</p>
 
-Shows:
+<p align="center">
+  <img src="docs/dashboard-preview.png" alt="Flappy CDN live dashboard preview" width="920"/>
+</p>
 
-- **Live TCP streams** (who is connected to the CDN port right now, approximate speed)
-- **Completed requests** from the nginx access log (file, size, status, speed if `$request_time` is logged)
-- **Per-IP volume** over the last 60 seconds
+<p align="center">
+  <em>Example snapshot from a real CDN host: active streams through NPM, completed <code>.7z</code> pulls, per-client volume.</em>
+</p>
 
-No Node, no Docker required on the CDN box. Pure **Python 3 stdlib** + `ss` (iproute2) + **systemd**.
+---
 
-Built for the [Flappy Launcher](https://github.com/PinyaGit/flappy-launcher) CDN layout, but works with any nginx static file host.
+## What you see
+
+| Panel | Meaning |
+|--------|---------|
+| **Active streams** | Open TCP connections to the CDN port right now |
+| **Active clients** | Distinct peers (after `real_ip` / X-Forwarded-For: real players, not only the proxy) |
+| **Throughput / volume (1 min)** | From completed access-log lines |
+| **Live connections** | Per-socket speed via `ss` (`bytes_acked` deltas) |
+| **Clients last 60s** | Who finished transfers recently |
+| **Recent completed requests** | Path, size, status, optional speed, UA (`launcher` pill) |
+
+File names appear when a request **finishes** (nginx access log). Live speed for in-flight transfers comes from TCP counters.
+
+---
 
 ## Architecture
 
+```text
+Players ──HTTPS──► NPM / reverse proxy ──HTTP──► CDN nginx :8080
+                                                    │
+                         access.log ────────────────┤
+                         TCP :8080 (ss) ────────────┤
+                                                    ▼
+                                         dashboard :8090  (LAN only)
 ```
-Players  →  NPM / reverse proxy (TLS)  →  CDN nginx :8080
-                                           │
-                                           ├─ access.log  ──►  dashboard (tail)
-                                           └─ TCP :8080   ──►  dashboard (ss)
-                                                      │
-                                                      ▼
-                                            UI http://CDN:8090/  (LAN only)
-```
 
-If TLS terminates on **Nginx Proxy Manager**, every client may appear as the proxy IP unless you:
+Works with the [Flappy Launcher](https://github.com/PinyaGit/flappy-launcher) layout (`index.json`, `packages/**/*.7z`), or any static nginx CDN.
 
-1. Send `X-Forwarded-For` / `X-Real-IP` from NPM  
-2. Enable `real_ip` on the CDN nginx (`install.sh --with-nginx --proxy-ip …`)
+---
 
-## Quick install (on the CDN container)
+## Install (on the CDN container / LXC)
 
 ```bash
-# clone or copy this repo onto the CDN host, then:
+git clone https://github.com/PinyaGit/flappy-cdn-dashboard.git
+cd flappy-cdn-dashboard
+
 sudo ./install.sh \
   --with-nginx \
   --proxy-ip 192.168.1.226 \
@@ -41,57 +59,77 @@ sudo ./install.sh \
   --port 8090
 ```
 
-Open from your LAN PC:
+Then open from a PC on your LAN:
 
 ```text
-http://192.168.1.112:8090/
+http://<cdn-host-ip>:8090/
 ```
 
-(Use your CDN host IP.)
-
-### One-liner from GitHub (after you push)
-
-```bash
-git clone https://github.com/PinyaGit/flappy-cdn-dashboard.git
-cd flappy-cdn-dashboard
-sudo ./install.sh --with-nginx --proxy-ip 192.168.1.226
-```
-
-## Options
-
-| Flag | Meaning |
+| Flag | Purpose |
 |------|---------|
-| `--access-log PATH` | nginx access log to tail |
-| `--nginx-port N` | CDN listen port (live `ss` filter) |
-| `--port N` | dashboard UI port (default `8090`) |
-| `--allow PREFIXES` | who may open UI (default `192.168.,10.,127.0.0.1,::1`) |
-| `--proxy-ip IP` | NPM/proxy for `set_real_ip_from` |
-| `--with-nginx` | inject `log_format cdn_timed`, wire `access_log … cdn_timed`, optional real_ip |
-| `--uninstall` | remove unit + `/opt/cdn-dashboard` |
+| `--with-nginx` | Add `log_format cdn_timed` (`$request_time`), wire `access_log … cdn_timed` |
+| `--proxy-ip` | `set_real_ip_from` for NPM (so logs/UI show real client IPs) |
+| `--access-log` | Path to nginx access log |
+| `--nginx-port` | CDN listen port used by live `ss` |
+| `--allow` | Who may open the UI (default: `192.168.,10.,127.0.0.1,::1`) |
+| `--uninstall` | Remove unit + `/opt/cdn-dashboard` |
 
-Config after install: `/etc/default/cdn-dashboard`  
-Binary/script: `/opt/cdn-dashboard/server.py`  
-Unit: `cdn-dashboard.service`
+**After install**
+
+| Path | |
+|------|--|
+| UI / API | `http://<host>:8090/` · `/api/live` · `/health` |
+| App | `/opt/cdn-dashboard/server.py` |
+| Env | `/etc/default/cdn-dashboard` |
+| Unit | `cdn-dashboard.service` |
 
 ```bash
 systemctl status cdn-dashboard
 journalctl -u cdn-dashboard -f
-curl -s http://127.0.0.1:8090/api/live
+curl -s http://127.0.0.1:8090/api/live | head
 ```
 
-## NPM tips (large .7z)
+---
 
-On the Proxy Host for `cdn.flappy.su`:
+## NPM (reverse proxy) tips
 
-- **Disable Response Buffering** → ON  
-- **Disable Request Buffering** → ON  
-- Custom config: long `proxy_read_timeout` / `proxy_send_timeout`, pass `X-Forwarded-For`
+For large launcher packages (`.7z` + Range):
+
+1. **Disable Response Buffering** → ON  
+2. **Disable Request Buffering** → ON  
+3. Pass **X-Forwarded-For** / **X-Real-IP** (needed for real client IPs on the dashboard)  
+4. Long proxy timeouts (`proxy_read_timeout` / `proxy_send_timeout` ≥ 3600s)  
+5. **Do not** cache huge package assets
+
+Without (1), a second downloader often sits at **0%** while the first transfer buffers through NPM.
+
+---
 
 ## Security
 
-- Dashboard returns **403** to clients outside `CDN_DASH_ALLOW` prefixes (LAN by default).
-- Does **not** need to be on the public internet.
-- Runs as **root** so it can read `/var/log/nginx/*` and run `ss` (typical on a dedicated CDN LXC).
+- Requests from outside `CDN_DASH_ALLOW` get **403** (LAN-oriented by default).  
+- No public domain required — bind IP + port is enough.  
+- Runs as **root** on a dedicated CDN LXC so it can read `/var/log/nginx` and run `ss`.
+
+---
+
+## Repo layout
+
+```text
+flappy-cdn-dashboard/
+├── install.sh                 # one-shot installer
+├── server.py                  # dashboard (Python 3 stdlib only)
+├── cdn-dashboard.service      # systemd unit
+├── cdn-dashboard.env.example
+├── docs/
+│   └── dashboard-preview.png  # README screenshot (example state)
+├── scripts/
+│   └── nginx-cdn-timed.conf.snippet
+├── README.md
+└── LICENSE
+```
+
+---
 
 ## Uninstall
 
@@ -99,6 +137,10 @@ On the Proxy Host for `cdn.flappy.su`:
 sudo ./install.sh --uninstall
 ```
 
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+Related: [flappy-launcher](https://github.com/PinyaGit/flappy-launcher)
