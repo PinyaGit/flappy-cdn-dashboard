@@ -1,0 +1,22 @@
+[Unit]
+Description=Flappy CDN live dashboard (LAN)
+Documentation=https://github.com/PinyaGit/flappy-cdn-dashboard
+After=network.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/cdn-dashboard
+Environment=CDN_DASH_HOST=0.0.0.0
+Environment=CDN_DASH_PORT=8090
+Environment=CDN_ACCESS_LOG=/var/log/nginx/cdn.flappy.su.access.log
+Environment=CDN_NGINX_PORT=8080
+Environment=CDN_DASH_ALLOW=192.168.,10.,127.0.0.1,::1
+ExecStart=/usr/bin/python3 /opt/cdn-dashboard/server.py
+Restart=on-failure
+RestartSec=2
+# Needs root (or CAP) to run ss and read nginx logs in /var/log/nginx
+User=root
+
+[Install]
+WantedBy=multi-user.target
