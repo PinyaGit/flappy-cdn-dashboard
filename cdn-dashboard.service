@@ -12,6 +12,8 @@ Environment=CDN_DASH_PORT=8090
 Environment=CDN_ACCESS_LOG=/var/log/nginx/cdn.flappy.su.access.log
 Environment=CDN_NGINX_PORT=8080
 Environment=CDN_DASH_ALLOW=192.168.,10.,127.0.0.1,::1
+Environment=CDN_WWW_ROOT=/var/www/cdn.flappy.su
+Environment=CDN_STATE_PATH=/var/lib/cdn-dashboard/lifetime.json
 ExecStart=/usr/bin/python3 /opt/cdn-dashboard/server.py
 Restart=on-failure
 RestartSec=2

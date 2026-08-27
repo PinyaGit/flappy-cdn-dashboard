@@ -22,6 +22,9 @@
 | **Active streams** | Open TCP connections to the CDN port right now |
 | **Active clients** | Distinct peers (after `real_ip` / X-Forwarded-For: real players, not only the proxy) |
 | **Throughput / volume (1 min)** | From completed access-log lines |
+| **Re-Dovah / Flappy / both · all time** | Bytes actually sent (`$bytes_sent`), split by URL prefix. Re-Dovah = CDN root `packages/` + `index.json`. Flappy = `/flappy/`. Totals survive logrotate via `/var/lib/cdn-dashboard/lifetime.json`. |
+| **Current versions** | `launcher/version.json`, root `index.json` / `version.txt`, `flappy/index.json` |
+| **Download launcher** | Serves `/var/www/cdn.flappy.su/launcher/Flappy-Launcher.zip` |
 | **Live connections** | Per-socket speed via `ss` (`bytes_acked` deltas) |
 | **Clients last 60s** | Who finished transfers recently |
 | **Recent completed requests** | Path, size, status, optional speed, UA (`launcher` pill) |
