@@ -581,7 +581,7 @@ def snapshot() -> dict:
             "games": {"bytes": games_b, "reqs": games_r},
         },
         "versions": versions,
-        "launcher_download": "/dl/launcher",
+        "launcher_download": "dl/launcher",
         "launcher_public_url": LAUNCHER_PUBLIC_URL,
     }
 
@@ -652,7 +652,7 @@ PAGE = r"""<!DOCTYPE html>
     <div class="mute">nginx :<span id="nport">—</span> · LAN-only · refresh 1s</div>
   </div>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-    <a class="btn" id="dl" href="/dl/launcher">Download launcher</a>
+    <a class="btn" id="dl" href="dl/launcher">Download launcher</a>
     <div class="mute">uptime <span id="up">—</span> · <span id="clk" class="ok">…</span></div>
   </div>
 </header>
@@ -744,7 +744,7 @@ function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({ '&':'&amp;','<':'
 function reqs(n){ return (n||0).toLocaleString()+' req'; }
 async function tick(){
   try{
-    const r = await fetch('/api/live', {cache:'no-store'});
+    const r = await fetch('api/live', {cache:'no-store'});
     if(!r.ok) throw new Error(r.status);
     const d = await r.json();
     $('clk').textContent = 'live';
