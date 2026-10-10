@@ -28,6 +28,9 @@
 | **Live connections** | Per-socket speed via `ss` (`bytes_acked` deltas) |
 | **Clients last 60s** | Who finished transfers recently |
 | **Recent completed requests** | Path, size, status, optional speed, UA (`launcher` pill) |
+| **Per-IP download cap** | Live adjustment of Nginx rate limit (`limit_rate`) & connection cap (`limit_conn`) |
+| **Launcher Remote Config** | Web management for `launcher-config.json`: Maintenance Mode, Banner MOTD, Catalog visibility toggles |
+| **Server & Builder Ops** | 1-click execution for builder scripts (`clear_garbage.sh`, `status.sh`, reload Nginx) with live terminal log |
 
 File names appear when a request **finishes** (nginx access log). Live speed for in-flight transfers comes from TCP counters.
 
@@ -81,7 +84,8 @@ http://<cdn-host-ip>:8090/
 
 | Path | |
 |------|--|
-| UI / API | `http://<host>:8090/` · `/api/live` · `/health` |
+| UI | `http://<host>:8090/` |
+| Endpoints | `/api/live` · `/api/versions` · `/api/launcher-config` · `/api/rate-limit` · `/api/action-run` · `/api/action-status` · `/health` |
 | App | `/opt/cdn-dashboard/server.py` |
 | Env | `/etc/default/cdn-dashboard` |
 | Unit | `cdn-dashboard.service` |
@@ -89,7 +93,7 @@ http://<cdn-host-ip>:8090/
 ```bash
 systemctl status cdn-dashboard
 journalctl -u cdn-dashboard -f
-curl -s http://127.0.0.1:8090/api/live | head
+curl -s http://127.0.0.1:8090/api/launcher-config
 ```
 
 ---
@@ -139,6 +143,15 @@ flappy-cdn-dashboard/
 ```bash
 sudo ./install.sh --uninstall
 ```
+
+---
+
+## Changelog
+
+### v1.2
+- **Launcher Remote Config**: dynamic `launcher-config.json` editor with Maintenance Mode switch, Banner announcement editor, and per-game catalog access gates.
+- **Server Actions Runner**: trigger and stream logs for `clear_garbage.sh`, `status.sh`, and Nginx reload directly in the Web UI.
+- **Per-IP Rate Limiting**: on-the-fly tuning of Nginx client download caps (`limit_rate` and `limit_conn`).
 
 ---
 
